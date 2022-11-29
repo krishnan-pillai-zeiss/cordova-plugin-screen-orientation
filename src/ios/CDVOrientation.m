@@ -51,7 +51,7 @@
     SEL selector = NSSelectorFromString(@"setSupportedOrientations:");
     
     if([vc respondsToSelector:selector]) {
-        if (!@available(iOS 16.0, *) && (orientationMask != 15 || [UIDevice currentDevice] == nil)) {
+        if (orientationMask != 15 || [UIDevice currentDevice] == nil) {
             ((void (*)(CDVViewController*, SEL, NSMutableArray*))objc_msgSend)(vc,selector,result);
         }
         
