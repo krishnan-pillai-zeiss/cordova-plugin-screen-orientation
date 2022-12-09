@@ -42,10 +42,10 @@
         [result addObject:[NSNumber numberWithInt:UIInterfaceOrientationPortraitUpsideDown]];
     }
     if(orientationMask & 4) {
-        [result addObject:[NSNumber numberWithInt:UIInterfaceOrientationLandscapeRight]];
+        [result addObject:[NSNumber numberWithInt:UIInterfaceOrientationLandscapeLeft]];
     }
     if(orientationMask & 8) {
-        [result addObject:[NSNumber numberWithInt:UIInterfaceOrientationLandscapeLeft]];
+        [result addObject:[NSNumber numberWithInt:UIInterfaceOrientationLandscapeRight]];
     }
     
     SEL selector = NSSelectorFromString(@"setSupportedOrientations:");
@@ -56,59 +56,63 @@
         }
         
         if ([UIDevice currentDevice] != nil){
-            NSValue *value;
-            NSObject *value16;
+            NSNumber *value = nil;
             if (orientationMask != 15) {
                 if (!_isLocked) {
-                    _lastOrientation = [UIApplication sharedApplication].statusBarOrientation;
+                    if (@available(iOS 16.0, *)) {
+                        UIWindowScene *scene = (UIWindowScene*)[[UIApplication.sharedApplication connectedScenes] anyObject];
+                   
+                        switch(scene.interfaceOrientation) {
+                            case UIInterfaceOrientationUnknown:
+                                _lastOrientation = UIInterfaceOrientationMaskAll;
+                                break;
+                            case UIInterfaceOrientationPortrait:
+                                _lastOrientation = UIInterfaceOrientationMaskPortrait;
+                                break;
+                            case UIInterfaceOrientationPortraitUpsideDown:
+                                _lastOrientation = UIInterfaceOrientationMaskPortraitUpsideDown;
+                                break;
+                            case UIInterfaceOrientationLandscapeLeft:
+                                _lastOrientation = UIInterfaceOrientationMaskLandscapeLeft;
+                                break;
+                            case UIInterfaceOrientationLandscapeRight:
+                                _lastOrientation = UIInterfaceOrientationMaskLandscapeRight;
+                                break;
+                        }
+                    } else {
+                        _lastOrientation = [UIApplication sharedApplication].statusBarOrientation;
+                    }
                 }
                 UIInterfaceOrientation deviceOrientation = [UIApplication sharedApplication].statusBarOrientation;
                 if(orientationMask == 8  || (orientationMask == 12  && !UIInterfaceOrientationIsLandscape(deviceOrientation))) {
-                    if (@available(iOS 16.0, *)) {
-                        value16 = [[UIWindowSceneGeometryPreferencesIOS alloc] initWithInterfaceOrientations:UIInterfaceOrientationMaskLandscapeLeft];
-                    } else {
-                        value = [NSNumber numberWithInt:UIInterfaceOrientationLandscapeLeft];
-                    }
+                    value = [NSNumber numberWithInt:UIInterfaceOrientationLandscapeLeft];
                 } else if (orientationMask == 4){
-                    if (@available(iOS 16.0, *)) {
-                        value16 = [[UIWindowSceneGeometryPreferencesIOS alloc] initWithInterfaceOrientations:UIInterfaceOrientationMaskLandscapeRight];
-                    } else {
-                        value = [NSNumber numberWithInt:UIInterfaceOrientationLandscapeRight];
-                    }
+                    value = [NSNumber numberWithInt:UIInterfaceOrientationLandscapeRight];
                 } else if (orientationMask == 1 || (orientationMask == 3 && !UIInterfaceOrientationIsPortrait(deviceOrientation))) {
-                    if (@available(iOS 16.0, *)) {
-                        value16 = [[UIWindowSceneGeometryPreferencesIOS alloc] initWithInterfaceOrientations:UIInterfaceOrientationMaskPortrait];
-                    } else {
-                        value = [NSNumber numberWithInt:UIInterfaceOrientationPortrait];
-                    }
+                    value = [NSNumber numberWithInt:UIInterfaceOrientationPortrait];
                 } else if (orientationMask == 2) {
-                    if (@available(iOS 16.0, *)) {
-                        value16 = [[UIWindowSceneGeometryPreferencesIOS alloc] initWithInterfaceOrientations:UIInterfaceOrientationMaskPortraitUpsideDown];
-                    } else {
-                        value = [NSNumber numberWithInt:UIInterfaceOrientationPortraitUpsideDown];
-                    }
+                    value = [NSNumber numberWithInt:UIInterfaceOrientationPortraitUpsideDown];
                 }
             } else {
                 if (_lastOrientation != UIInterfaceOrientationUnknown) {
-                    [[UIDevice currentDevice] setValue:[NSNumber numberWithInt:_lastOrientation] forKey:@"orientation"];
-                    ((void (*)(CDVViewController*, SEL, NSMutableArray*))objc_msgSend)(vc,selector,result);
+                     ((void (*)(CDVViewController*, SEL, NSMutableArray*))objc_msgSend)(vc,selector,result);
+                    
                     if (@available(iOS 16.0, *)) {
-                        [self.viewController setNeedsUpdateOfSupportedInterfaceOrientations];
-                    }
-                    else {
+                        #if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_15_5 // Xcode 14 and iOS 16, or greater
+                            [self.viewController setNeedsUpdateOfSupportedInterfaceOrientations];
+                        #endif
+                    } else {
+                        [[UIDevice currentDevice] setValue:[NSNumber numberWithInt:_lastOrientation] forKey:@"orientation"];
                         [UINavigationController attemptRotationToDeviceOrientation];
                     }
                 }
             }
-            if (value != nil || value16 != nil) {
+            if (value != nil) {
                 _isLocked = true;
                 if (@available(iOS 16.0, *)) {
-                    UIWindowScene *scene = (UIWindowScene*)[[UIApplication.sharedApplication connectedScenes] anyObject];
-                    [self.viewController setNeedsUpdateOfSupportedInterfaceOrientations];
-                    [scene requestGeometryUpdateWithPreferences:(UIWindowSceneGeometryPreferencesIOS*)value16 errorHandler:^(NSError * _Nonnull error) {
-                        NSLog(@"Failed to change orientation  %@ %@", error, [error userInfo]);
-                        // do nothing
-                    }];
+                    #if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_15_5 // Xcode 14 and iOS 16, or greater
+                        [self.viewController setNeedsUpdateOfSupportedInterfaceOrientations];
+                    #endif
                 } else {
                     [[UIDevice currentDevice] setValue:value forKey:@"orientation"];
                 }
